@@ -16,18 +16,20 @@ $subnetName=Read-Host -Prompt "Input your subnet name for the application gatewa
 if ($subnetName -eq "") {
     $subnetName="ApplicationGateway"
 }
+$addressPrefix=Read-Host -Prompt "Input the address prefix of your subnet name for the application gateway [10.0.1.0/24]"
+if ($addressPrefix -eq "") {
+    $addressPrefix="10.0.1.0/24"
+}
 
 $publicipName=Read-Host -Prompt "Input your public IP name[publicIP01]"
 if ($publicipName -eq "") {
     $publicipName="publicIP01"
 }
 
-$routerIPList = Read-Host -Prompt 'Input the list of router IP addresses (split by ";")'
-$routerIPs = $routerIPList -split ";"
-$routerNumber = $routerIPs.Length
+$routerNumber = 2
 
 $systemDomain = Read-Host -Prompt "Input your system domain"
-$certInfoList = Read-Host -Prompt "Input the hostname, path and password of the certificates (Format: hostname1,path1,password1;hostname2,path2,password2;...)"
+$certInfoList = Read-Host -Prompt "Input the hostname, ABSOLUTE path and password of the certificates (Format: hostname1,path1,password1;hostname2,path2,password2;...)"
 
 # Remove it if the application gateway (AG) exists
 Write-Host "Removing it if the application gateway exists"
@@ -36,6 +38,9 @@ Remove-AzureRmApplicationGateway -Name $appgwName -ResourceGroupName $rgName -Fo
 # Add the subnet for AG
 Write-Host "Adding the subnet for the application gateway"
 $vnet = Get-AzureRmVirtualNetwork -Name $vnetName -ResourceGroupName $rgName
+$updatedVnet = Remove-AzureRmVirtualNetworkSubnetConfig -Name testSubnet -VirtualNetwork $vnet
+$updatedVnet = Add-AzureRmVirtualNetworkSubnetConfig -Name $subnetName -VirtualNetwork $updatedVnet -AddressPrefix $addressPrefix
+$vnet = Set-AzureRmVirtualNetwork -VirtualNetwork $updatedVnet
 $subnet = Get-AzureRmVirtualNetworkSubnetConfig -Name $subnetName -VirtualNetwork $vnet
 
 # Create public IP address for front end configuration
@@ -50,12 +55,12 @@ $gipconfig = New-AzureRmApplicationGatewayIPConfiguration -Name gatewayIP01 -Sub
 # Configure the back end IP address pool named with routers' IP addresses
 # which can be found in your Cloud Foundry manifest
 Write-Host "Configuring the back end IP address pool"
-$pool = New-AzureRmApplicationGatewayBackendAddressPool -Name pool01 -BackendIPAddresses $routerIPs
+$pool = New-AzureRmApplicationGatewayBackendAddressPool -Name pool01
 
 # Configure a probe which will detect whether backend servers are healthy.
 # It detects "login.REPLACE_WITH_CLOUD_FOUNDRY_PUBLIC_IP.xip.io/" every 60 seconds.
 Write-Host "Configuring a probe"
-$hostName="login."+$systemDomain
+$hostName="api."+$systemDomain
 $probe=New-AzureRmApplicationGatewayProbeConfig -Name Probe01 -Protocol Http -HostName $hostName -Path "/" -Interval 60 -Timeout 60 -UnhealthyThreshold 3
 
 # Configure AG settings to load balance network traffic in the back end pool
@@ -88,6 +93,7 @@ $i = 1
 $certInfors = $certInfoList -split ";"
 foreach ($certInfo in $certInfors) {
     $hostName, $certPath, $passwd = $certInfo -split ","
+	$passwd = ConvertTo-SecureString $passwd -AsPlainText -Force
     $cert = New-AzureRmApplicationGatewaySslCertificate -Name "cert$i" -CertificateFile $certPath -Password $passwd
     $listener = New-AzureRmApplicationGatewayHttpListener -Name "listener$i" -Protocol Https -FrontendIPConfiguration $fipconfig -FrontendPort $fp_https -SslCertificate $cert -HostName $hostName -RequireServerNameIndication true 
     $rule = New-AzureRmApplicationGatewayRequestRoutingRule -Name "rule$i" -RuleType Basic -BackendHttpSettings $poolSetting -HttpListener $listener -BackendAddressPool $pool
