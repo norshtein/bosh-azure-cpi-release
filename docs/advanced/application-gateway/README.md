@@ -65,12 +65,12 @@ to
 
 #### Update Cloud Foundry deployment
 
-Remove `load_balancer_name` and specify `application_gateway_name` in `deploy_cloud_foundry.sh`, and run the script.
+Remove `load_balancer_name` and specify `application_gateway_name` in `deploy_cloud_foundry.sh`, and modify `system_domain` to the domain used during creating the application gateway in `deploy_cloud_foundry.sh`, and run the script.
 
 ```
 ./deploy_cloud_foundry.sh
 ```
-    
+
 ### 3. Configure DNS for your Cloud Foundry domain
 
 Update the DNS entries, so the Application gateway's IP is associated with CF system domain.
@@ -90,7 +90,7 @@ Update the DNS entries, so the Application gateway's IP is associated with CF sy
     You can find the IP addresses mentioned above on Azure Portal in your resource group. `<SYSTEM-DOMAIN>` is specified in your manifest for Cloud Foundry.
 
 ### 4. Log into CF deployment for validating
-  
+
 `cf login -a https://api.<SYSTEM-DOMAIN> --skip-ssl-validation`.
 
 If you can login successfully, the Application Gateway is created successfully.
