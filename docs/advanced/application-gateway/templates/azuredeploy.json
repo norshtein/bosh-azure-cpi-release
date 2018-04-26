@@ -181,7 +181,7 @@
             "name": "CustomProbe",
             "properties": {
               "protocol": "Http",
-              "host": "[concat('login.', parameters('systemDomain'))]",
+              "host": "[concat('api.', parameters('systemDomain'))]",
               "path": "/",
               "interval": 60,
               "timeout": 60,
